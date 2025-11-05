@@ -1,0 +1,9 @@
+{
+  "name": "@app/shared",
+  "version": "1.0.0",
+  "description": "",
+  "types": "./types.d.ts",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

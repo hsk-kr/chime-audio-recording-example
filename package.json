@@ -1,0 +1,7 @@
+{
+  "name": "chime_audio_record_example",
+  "scripts": {
+    "frontend:dev": "pnpm run --filter frontend dev",
+    "backend:dev": "pnpm run --filter backend dev"
+  }
+}

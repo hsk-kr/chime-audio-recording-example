@@ -1,0 +1,29 @@
+{
+  "name": "@app/backend",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "npx nodemon --watch src --ext ts --exec node --loader ts-node/esm ./src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@app/shared": "workspace:^",
+    "@aws-sdk/client-chime-sdk-media-pipelines": "3.299.0",
+    "@aws-sdk/client-chime-sdk-meetings": "^3.922.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
