@@ -15,6 +15,7 @@ import { GetMeetingsResponse } from "@app/shared";
 import {
   ChimeSDKMediaPipelines,
   CreateMediaCapturePipelineCommand,
+  CreateMediaConcatenationPipelineCommand,
 } from "@aws-sdk/client-chime-sdk-media-pipelines";
 
 dotenv.config();
@@ -87,7 +88,7 @@ app
 
     const meetingId = meeting.Meeting!.MeetingId!;
 
-    await mediaClient.send(
+    const pipeline = await mediaClient.send(
       new CreateMediaCapturePipelineCommand({
         SourceType: "ChimeSdkMeeting",
         SourceArn: meeting!.Meeting!.MeetingArn,
@@ -100,6 +101,52 @@ app
             Content: { State: "Disabled" },
           },
         },
+      }),
+    );
+
+    await mediaClient.send(
+      new CreateMediaConcatenationPipelineCommand({
+        Sources: [
+          {
+            Type: "MediaCapturePipeline",
+            MediaCapturePipelineSourceConfiguration: {
+              MediaPipelineArn: pipeline.MediaCapturePipeline!.MediaPipelineArn,
+              ChimeSdkMeetingConfiguration: {
+                ArtifactsConfiguration: {
+                  Audio: {
+                    State: "Enabled",
+                  },
+                  CompositedVideo: {
+                    State: "Disabled",
+                  },
+                  Content: {
+                    State: "Disabled",
+                  },
+                  DataChannel: {
+                    State: "Disabled",
+                  },
+                  MeetingEvents: {
+                    State: "Disabled",
+                  },
+                  TranscriptionMessages: {
+                    State: "Disabled",
+                  },
+                  Video: {
+                    State: "Disabled",
+                  },
+                },
+              },
+            },
+          },
+        ],
+        Sinks: [
+          {
+            Type: "S3Bucket",
+            S3BucketSinkConfiguration: {
+              Destination: `arn:aws:s3:::${bucketName}/${meetingId}/concatenated/`,
+            },
+          },
+        ],
       }),
     );
 
@@ -155,6 +202,8 @@ app.post("/meetings/:meetingId", async (req, res) => {
     attendee,
   });
 });
+
+// test();
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
