@@ -10,4 +10,23 @@ export type CreateMeetingResponse = {
   attendee: any;
 };
 
+export type WebsocketPacket =
+  | {
+      type: "connect";
+      meetingId: string;
+    }
+  | {
+      type: "connected";
+      data: {
+        meeting: any;
+        attendee: any;
+      };
+    }
+  | {
+      type: "attendeesCnt";
+      data: {
+        cnt: number;
+      };
+    };
+
 export type JoinMeetingResponse = CreateMeetingResponse;

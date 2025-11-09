@@ -1,51 +1,19 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { v4 as uuidv4 } from "uuid";
+import { WebSocketServer } from "ws";
+import { WebsocketPacket } from "@app/shared";
 import {
-  ChimeSDKMeetingsClient,
-  CreateAttendeeCommand,
   CreateAttendeeCommandOutput,
-  CreateMeetingCommand,
-  ListAttendeesCommand,
-  GetMeetingCommand,
-  GetMeetingCommandOutput,
+  CreateMeetingCommandOutput,
 } from "@aws-sdk/client-chime-sdk-meetings";
-import { GetMeetingsResponse } from "@app/shared";
-import {
-  ChimeSDKMediaPipelines,
-  CreateMediaCapturePipelineCommand,
-  CreateMediaConcatenationPipelineCommand,
-} from "@aws-sdk/client-chime-sdk-media-pipelines";
+import { createAttendee, meetings, removeAttendee } from "./chime.js";
 
 dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT);
-
-const accessKeyId = process.env.AWS_ACCESS_KEY!;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;
-const region = process.env.AWS_MEETING_REGION!;
-const bucketName = process.env.AWS_S3_BUCKET_NAME!;
-
-type Meeting = {
-  meetingId: string;
-  createdAt: Date;
-};
-
-const meetings = new Map<string, Meeting>();
-
-const clientParams = {
-  region,
-  credentials: {
-    accessKeyId,
-    secretAccessKey,
-  },
-};
-
-const meetingsClient = new ChimeSDKMeetingsClient(clientParams);
-
-const mediaClient = new ChimeSDKMediaPipelines(clientParams);
+const websocketPort = Number(process.env.WS_PORT!);
 
 app.use(cors());
 app.use(express.json());
@@ -53,157 +21,85 @@ app.use(express.json());
 app
   .route("/meetings")
   .get(async (req, res) => {
-    const meetingInformationList: GetMeetingsResponse = [];
-
-    for (const { meetingId, createdAt } of meetings.values()) {
-      try {
-        const attendees = await meetingsClient.send(
-          new ListAttendeesCommand({
-            MeetingId: meetingId,
-          }),
-        );
-
-        meetingInformationList.push({
-          meetingId,
-          attendeeCount: attendees.Attendees!.length,
-          createdAt: createdAt.toString(),
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    res.json({
+    return res.json({
       success: true,
-      meetings: meetingInformationList,
     });
   })
   .post(async (req, res) => {
-    const meeting = await meetingsClient.send(
-      new CreateMeetingCommand({
-        ExternalMeetingId: uuidv4(),
-        MediaRegion: region,
-      }),
-    );
-
-    const meetingId = meeting.Meeting!.MeetingId!;
-
-    const pipeline = await mediaClient.send(
-      new CreateMediaCapturePipelineCommand({
-        SourceType: "ChimeSdkMeeting",
-        SourceArn: meeting!.Meeting!.MeetingArn,
-        SinkType: "S3Bucket",
-        SinkArn: `arn:aws:s3:::${bucketName}`,
-        ChimeSdkMeetingConfiguration: {
-          ArtifactsConfiguration: {
-            Audio: { MuxType: "AudioOnly" },
-            Video: { State: "Disabled" },
-            Content: { State: "Disabled" },
-          },
-        },
-      }),
-    );
-
-    await mediaClient.send(
-      new CreateMediaConcatenationPipelineCommand({
-        Sources: [
-          {
-            Type: "MediaCapturePipeline",
-            MediaCapturePipelineSourceConfiguration: {
-              MediaPipelineArn: pipeline.MediaCapturePipeline!.MediaPipelineArn,
-              ChimeSdkMeetingConfiguration: {
-                ArtifactsConfiguration: {
-                  Audio: {
-                    State: "Enabled",
-                  },
-                  CompositedVideo: {
-                    State: "Disabled",
-                  },
-                  Content: {
-                    State: "Disabled",
-                  },
-                  DataChannel: {
-                    State: "Disabled",
-                  },
-                  MeetingEvents: {
-                    State: "Disabled",
-                  },
-                  TranscriptionMessages: {
-                    State: "Disabled",
-                  },
-                  Video: {
-                    State: "Disabled",
-                  },
-                },
-              },
-            },
-          },
-        ],
-        Sinks: [
-          {
-            Type: "S3Bucket",
-            S3BucketSinkConfiguration: {
-              Destination: `arn:aws:s3:::${bucketName}/${meetingId}/concatenated/`,
-            },
-          },
-        ],
-      }),
-    );
-
-    const attendee = await meetingsClient.send(
-      new CreateAttendeeCommand({
-        ExternalUserId: uuidv4(),
-        MeetingId: meetingId,
-      }),
-    );
-
-    meetings.set(meetingId, {
-      meetingId,
-      createdAt: new Date(),
-    });
-
     return res.json({
       success: true,
-      meeting,
-      attendee,
     });
   });
 
-app.post("/meetings/:meetingId", async (req, res) => {
-  const { meetingId } = req.params;
-  let meeting: GetMeetingCommandOutput;
-  let attendee: CreateAttendeeCommandOutput;
+const wss = new WebSocketServer({ port: websocketPort });
 
-  // todo: test if it catches creation error
-  try {
-    meeting = await meetingsClient.send(
-      new GetMeetingCommand({
-        MeetingId: meetingId,
-      }),
-    );
+wss.on("connection", function connection(ws) {
+  const client: {
+    meetingId: string;
+    attendee: CreateAttendeeCommandOutput;
+  } | null = null;
 
-    attendee = await meetingsClient.send(
-      new CreateAttendeeCommand({
-        ExternalUserId: uuidv4(),
-        MeetingId: meetingId,
-      }),
-    );
-  } catch (e) {
+  const sendAttendeeCnt = () => {
+    if (client === null) return;
+
+    const attendees = meetings.get(client.meetingId).attendees;
+
+    for (const attendee of attendees) {
+      attendee.ws.send(
+        JSON.stringify({
+          type: "attendeesCnt",
+          data: {
+            cnt: attendees.length,
+          },
+        } satisfies WebsocketPacket),
+      );
+    }
+  };
+
+  ws.on("error", (e) => {
     console.error(e);
-    return res.status(400).json({
-      success: false,
-      error: "Failed to join the meeting",
-    });
-  }
+    ws.close();
+  });
 
-  return res.json({
-    success: true,
-    meeting,
-    attendee,
+  ws.on("message", async function message(data) {
+    const d = JSON.parse(data.toString()) as WebsocketPacket;
+
+    switch (d.type) {
+      case "connect":
+        const { meeting, attendee } = await createAttendee({
+          meetingId: d.meetingId,
+          ws,
+        });
+
+        client.meetingId = d.meetingId;
+        client.attendee = attendee;
+
+        ws.send(
+          JSON.stringify({
+            type: "connected",
+            data: {
+              meeting,
+              attendee,
+            },
+          } satisfies WebsocketPacket),
+        );
+        void sendAttendeeCnt();
+
+        break;
+      default:
+        console.log(`unknown data: ${data.toString()}`);
+    }
+  });
+
+  ws.on("close", async () => {
+    if (client === null) return;
+    await removeAttendee({
+      meetingId: client.meetingId,
+      attendee: client.attendee,
+    });
+    void sendAttendeeCnt();
   });
 });
-
-// test();
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

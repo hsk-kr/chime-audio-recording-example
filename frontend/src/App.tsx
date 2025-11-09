@@ -79,8 +79,11 @@ function App() {
       deviceController,
     );
 
-    const audioVideo = meetingSession.audioVideo;
+    deviceController.setDeviceLabelTrigger(async () => {
+      return navigator.mediaDevices.getUserMedia({ audio: true });
+    });
 
+    const audioVideo = meetingSession.audioVideo;
     const mics = await audioVideo.listAudioInputDevices();
 
     await audioVideo.startAudioInput(mics[0].deviceId);
