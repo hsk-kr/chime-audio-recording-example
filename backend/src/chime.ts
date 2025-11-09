@@ -16,6 +16,7 @@ import {
   GetMeetingCommand,
   ListAttendeesCommand,
 } from "@aws-sdk/client-chime-sdk-meetings";
+import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
 
 const accessKeyId = process.env.AWS_ACCESS_KEY!;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;
@@ -29,9 +30,15 @@ type Meeting = {
   createdAt: Date;
 };
 
+type PastMeeting = {
+  meetingId: string;
+  audioUrl: string | null;
+  createdAt: Date;
+};
+
 export const meetings = new Map<string, Meeting>();
 
-const pastMeetings = new Map<string, Meeting>();
+const pastMeetings = new Map<string, PastMeeting>();
 
 export const connectionInfo = {
   region,
@@ -45,10 +52,10 @@ const mediaClient = new ChimeSDKMediaPipelines(connectionInfo);
 
 const meetingClient = new ChimeSDKMeetingsClient(connectionInfo);
 
+const s3 = new S3Client({ region: process.env.AWS_S3_REGION! });
+
 export async function getMeetings() {
-  return {
-    meetings,
-  };
+  return meetings;
 }
 
 export async function createMeeting() {
@@ -130,9 +137,7 @@ export async function createMeeting() {
     createdAt: new Date(),
   });
 
-  return {
-    meeting,
-  };
+  return meeting;
 }
 
 export async function createAttendee({
@@ -201,8 +206,41 @@ export async function removeAttendee({
   }
 }
 
+export async function getPastMeetings() {
+  const pastMeetingsWithAudio: PastMeeting[] = [];
+
+  for (const pm of pastMeetings.values()) {
+    if (pm.audioUrl === null) {
+      const listCommand = new ListObjectsCommand({
+        Bucket: bucketName,
+        Prefix: `${pm.meetingId}/concatenated/audio`,
+      });
+
+      const { Contents } = await s3.send(listCommand);
+
+      if (Contents && Contents.length > 0) {
+        const key = Contents[0].Key;
+
+        pm.audioUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
+        pastMeetings.set(pm.meetingId, pm);
+      }
+    }
+
+    pastMeetingsWithAudio.push(pm);
+  }
+
+  return pastMeetingsWithAudio;
+}
+
 async function destroyMeeting(meetingId: string) {
   const meeting = meetings.get(meetingId);
+  meetings.delete(meetingId);
+
+  pastMeetings.set(meetingId, {
+    meetingId,
+    createdAt: meeting.createdAt,
+    audioUrl: null,
+  });
 
   const attendees = await meetingClient.send(
     new ListAttendeesCommand({

@@ -2,12 +2,21 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import { WebSocketServer } from "ws";
-import { WebsocketPacket } from "@app/shared";
 import {
-  CreateAttendeeCommandOutput,
-  CreateMeetingCommandOutput,
-} from "@aws-sdk/client-chime-sdk-meetings";
-import { createAttendee, meetings, removeAttendee } from "./chime.js";
+  CreateRoomResponse,
+  GetPastRoomsResponse,
+  GetRoomsResponse,
+  WebsocketPacket,
+} from "@app/shared";
+import { CreateAttendeeCommandOutput } from "@aws-sdk/client-chime-sdk-meetings";
+import {
+  createAttendee,
+  createMeeting,
+  getMeetings,
+  getPastMeetings,
+  meetings,
+  removeAttendee,
+} from "./chime.js";
 
 dotenv.config();
 
@@ -21,15 +30,36 @@ app.use(express.json());
 app
   .route("/meetings")
   .get(async (req, res) => {
+    const meetings = await getMeetings();
+    const meetingArr = Array.from(meetings.values());
+    const rooms = meetingArr.map((m) => ({
+      meetingId: m.meetingId,
+      attendeeCnt: m.attendees.length,
+    }));
+
     return res.json({
-      success: true,
-    });
+      rooms,
+    } satisfies GetRoomsResponse);
   })
   .post(async (req, res) => {
     return res.json({
-      success: true,
-    });
+      meeting: await createMeeting(),
+    } satisfies CreateRoomResponse);
   });
+
+app.route("/past-meetings").get(async (req, res) => {
+  const pastMeetings = await getPastMeetings();
+  const pastMeetingArr = Array.from(pastMeetings.values());
+  const rooms = pastMeetingArr.map((m) => ({
+    meetingId: m.meetingId,
+    audioUrl: m.audioUrl,
+    createdAt: m.createdAt.toISOString(),
+  }));
+
+  return res.json({
+    rooms,
+  } satisfies GetPastRoomsResponse);
+});
 
 const wss = new WebSocketServer({ port: websocketPort });
 

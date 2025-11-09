@@ -1,13 +1,20 @@
-export type GetMeetingsResponse = {
-  meetingId: string;
-  attendeeCount: number;
-  createdAt: string;
-}[];
+export type GetRoomsResponse = {
+  rooms: {
+    meetingId: string;
+    attendeeCnt: number;
+  }[];
+};
 
-export type CreateMeetingResponse = {
-  success: true;
+export type GetPastRoomsResponse = {
+  rooms: {
+    meetingId: string;
+    audioUrl: string | null;
+    createdAt: string;
+  }[];
+};
+
+export type CreateRoomResponse = {
   meeting: any;
-  attendee: any;
 };
 
 export type WebsocketPacket =
@@ -28,5 +35,3 @@ export type WebsocketPacket =
         cnt: number;
       };
     };
-
-export type JoinMeetingResponse = CreateMeetingResponse;
