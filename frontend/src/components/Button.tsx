@@ -28,7 +28,14 @@ export default function Button({
 
   return (
     <button
-      className={twMerge(colors[color], className, _className)}
+      className={twMerge(
+        colors[color],
+        className,
+        rest.disabled
+          ? "disabled:bg-gray-400 disabled:text-zinc-50 opacity-70 pointer-events-none"
+          : "",
+        _className,
+      )}
       {...rest}
     />
   );

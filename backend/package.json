@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev": "npx nodemon --watch src --ext ts --exec node --loader ts-node/esm ./src/index.ts"
+    "dev": "npx nodemon --exec node --loader ts-node/esm ./src/index.ts"
   },
   "keywords": [],
   "author": "",

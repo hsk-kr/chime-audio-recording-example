@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import ws from "ws";
 import {
@@ -17,6 +18,8 @@ import {
   ListAttendeesCommand,
 } from "@aws-sdk/client-chime-sdk-meetings";
 import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
+
+dotenv.config();
 
 const accessKeyId = process.env.AWS_ACCESS_KEY!;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;

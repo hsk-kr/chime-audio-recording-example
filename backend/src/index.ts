@@ -1,5 +1,5 @@
-import express from "express";
 import dotenv from "dotenv";
+import express from "express";
 import cors from "cors";
 import { WebSocketServer } from "ws";
 import {
@@ -28,7 +28,7 @@ app.use(cors());
 app.use(express.json());
 
 app
-  .route("/meetings")
+  .route("/rooms")
   .get(async (req, res) => {
     const meetings = await getMeetings();
     const meetingArr = Array.from(meetings.values());
@@ -47,7 +47,7 @@ app
     } satisfies CreateRoomResponse);
   });
 
-app.route("/past-meetings").get(async (req, res) => {
+app.route("/past-rooms").get(async (req, res) => {
   const pastMeetings = await getPastMeetings();
   const pastMeetingArr = Array.from(pastMeetings.values());
   const rooms = pastMeetingArr.map((m) => ({
