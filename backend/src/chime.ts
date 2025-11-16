@@ -15,15 +15,20 @@ import {
   DeleteAttendeeCommand,
   DeleteMeetingCommand,
   GetMeetingCommand,
-  ListAttendeesCommand,
 } from "@aws-sdk/client-chime-sdk-meetings";
-import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  ListObjectsCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 dotenv.config();
 
 const accessKeyId = process.env.AWS_ACCESS_KEY!;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;
 const region = process.env.AWS_MEDIA_REGION!;
+const bucketRegion = process.env.AWS_S3_REGION!;
 const bucketName = process.env.AWS_S3_BUCKET_NAME!;
 
 type Meeting = {
@@ -55,7 +60,10 @@ const mediaClient = new ChimeSDKMediaPipelines(connectionInfo);
 
 const meetingClient = new ChimeSDKMeetingsClient(connectionInfo);
 
-const s3 = new S3Client({ region: process.env.AWS_S3_REGION! });
+const s3 = new S3Client({
+  region: bucketRegion,
+  credentials: connectionInfo.credentials,
+});
 
 export async function getMeetings() {
   return meetings;
@@ -204,9 +212,7 @@ export async function removeAttendee({
     (a) => a.attendee.Attendee.AttendeeId !== attendee.Attendee.AttendeeId,
   );
 
-  if (meeting.attendees.length === 0) {
-    destroyMeeting(meetingId);
-  }
+  return meeting.attendees.length;
 }
 
 export async function getPastMeetings() {
@@ -224,8 +230,20 @@ export async function getPastMeetings() {
       if (Contents && Contents.length > 0) {
         const key = Contents[0].Key;
 
-        pm.audioUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
+        const command = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: key,
+        });
+
+        const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+
+        pm.audioUrl = signedUrl;
         pastMeetings.set(pm.meetingId, pm);
+
+        setTimeout(() => {
+          pm.audioUrl = null;
+          pastMeetings.set(pm.meetingId, pm);
+        }, 3600 * 1000);
       }
     }
 
@@ -235,7 +253,7 @@ export async function getPastMeetings() {
   return pastMeetingsWithAudio;
 }
 
-async function destroyMeeting(meetingId: string) {
+export async function destroyMeeting(meetingId: string) {
   const meeting = meetings.get(meetingId);
   meetings.delete(meetingId);
 
@@ -244,21 +262,6 @@ async function destroyMeeting(meetingId: string) {
     createdAt: meeting.createdAt,
     audioUrl: null,
   });
-
-  const attendees = await meetingClient.send(
-    new ListAttendeesCommand({
-      MeetingId: meetingId,
-    }),
-  );
-
-  for (const attendee of attendees.Attendees) {
-    await meetingClient.send(
-      new DeleteAttendeeCommand({
-        MeetingId: meetingId,
-        AttendeeId: attendee.AttendeeId,
-      }),
-    );
-  }
 
   await mediaClient.send(
     new DeleteMediaCapturePipelineCommand({

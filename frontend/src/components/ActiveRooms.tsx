@@ -1,5 +1,6 @@
 import { MdPeopleAlt } from "react-icons/md";
 import Button from "./Button";
+import { useNavigate } from "react-router";
 
 type ActiveRoomProps = {
   id: string;
@@ -15,15 +16,21 @@ export default function ActiveRooms({
     <div className="space-y-6">
       <h2 className="font-medium text-lg">Active Rooms</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {activeRooms.map((activeRoom) => (
-          <ActiveRoom key={activeRoom.id} {...activeRoom} />
-        ))}
+        {activeRooms.length > 0 ? (
+          activeRooms.map((activeRoom) => (
+            <ActiveRoom key={activeRoom.id} {...activeRoom} />
+          ))
+        ) : (
+          <span>No Active Rooms</span>
+        )}
       </div>
     </div>
   );
 }
 
 function ActiveRoom({ id, attendeeCnt }: ActiveRoomProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-4 rounded-xl border bg-linear-to-br from-[#1C1C1C] to-[#0F0F0F] border-[#2A2A2A] hover:border-[#14B8A6]/50 transition-all duration-200 p-6 group hover:shadow-lg hover:shadow-[#14B8A6]/10">
       <div>{id}</div>
@@ -31,7 +38,13 @@ function ActiveRoom({ id, attendeeCnt }: ActiveRoomProps) {
         <MdPeopleAlt /> {attendeeCnt} attendees
       </p>
       <div>
-        <Button>Join</Button>
+        <Button
+          onClick={() => {
+            navigate(`/${id}`);
+          }}
+        >
+          Join
+        </Button>
       </div>
     </div>
   );

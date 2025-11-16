@@ -12,6 +12,7 @@ import { CreateAttendeeCommandOutput } from "@aws-sdk/client-chime-sdk-meetings"
 import {
   createAttendee,
   createMeeting,
+  destroyMeeting,
   getMeetings,
   getPastMeetings,
   meetings,
@@ -64,10 +65,14 @@ app.route("/past-rooms").get(async (req, res) => {
 const wss = new WebSocketServer({ port: websocketPort });
 
 wss.on("connection", function connection(ws) {
+  console.log("An attendee has been connected");
   const client: {
-    meetingId: string;
-    attendee: CreateAttendeeCommandOutput;
-  } | null = null;
+    meetingId: string | null;
+    attendee: CreateAttendeeCommandOutput | null;
+  } = {
+    meetingId: null,
+    attendee: null,
+  };
 
   const sendAttendeeCnt = () => {
     if (client === null) return;
@@ -92,42 +97,58 @@ wss.on("connection", function connection(ws) {
   });
 
   ws.on("message", async function message(data) {
-    const d = JSON.parse(data.toString()) as WebsocketPacket;
+    try {
+      const d = JSON.parse(data.toString()) as WebsocketPacket;
 
-    switch (d.type) {
-      case "connect":
-        const { meeting, attendee } = await createAttendee({
-          meetingId: d.meetingId,
-          ws,
-        });
+      switch (d.type) {
+        case "connect":
+          const { meeting, attendee } = await createAttendee({
+            meetingId: d.data.meetingId,
+            ws,
+          });
 
-        client.meetingId = d.meetingId;
-        client.attendee = attendee;
+          client.meetingId = d.data.meetingId;
+          client.attendee = attendee;
 
-        ws.send(
-          JSON.stringify({
-            type: "connected",
-            data: {
-              meeting,
-              attendee,
-            },
-          } satisfies WebsocketPacket),
-        );
-        void sendAttendeeCnt();
+          ws.send(
+            JSON.stringify({
+              type: "connected",
+              data: {
+                meeting,
+                attendee,
+              },
+            } satisfies WebsocketPacket),
+          );
+          void sendAttendeeCnt();
 
-        break;
-      default:
-        console.log(`unknown data: ${data.toString()}`);
+          break;
+        default:
+          console.log(`unknown data: ${data.toString()}`);
+      }
+    } catch (e) {
+      console.error(e);
+      ws.close();
     }
   });
 
   ws.on("close", async () => {
-    if (client === null) return;
-    await removeAttendee({
-      meetingId: client.meetingId,
-      attendee: client.attendee,
-    });
-    void sendAttendeeCnt();
+    if (!client.meetingId) return;
+
+    try {
+      const attendeeCnt = await removeAttendee({
+        meetingId: client.meetingId,
+        attendee: client.attendee,
+      });
+      console.log(`An attendee leave. Current attendees: ${attendeeCnt}`);
+
+      if (attendeeCnt === 0) {
+        await destroyMeeting(client.meetingId);
+        console.log("Meeting has been destroyed as there are no attendees");
+      }
+      void sendAttendeeCnt();
+    } catch (e) {
+      ws.close();
+    }
   });
 });
 

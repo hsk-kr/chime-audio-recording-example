@@ -17,9 +17,13 @@ export default function PastRooms({
     <div className="space-y-6">
       <h2 className="font-medium text-lg">Past Rooms</h2>
       <div className="space-y-4">
-        {pastRooms.map((pastRoom) => (
-          <PastRoom key={pastRoom.id} {...pastRoom} />
-        ))}
+        {pastRooms.length > 0 ? (
+          pastRooms.map((pastRoom) => (
+            <PastRoom key={pastRoom.id} {...pastRoom} />
+          ))
+        ) : (
+          <span>No Past Rooms</span>
+        )}
       </div>
     </div>
   );
@@ -27,7 +31,11 @@ export default function PastRooms({
 
 function PastRoom({ id, audioUrl, createdAt }: PastRoomProps) {
   const handleDownload = () => {
-    alert(audioUrl);
+    const a = document.createElement("a");
+    a.target = "_blank";
+    a.setAttribute("href", audioUrl!);
+    a.click();
+    a.remove();
   };
   return (
     <div className="flex justify-between bg-[#1C1C1C] border border-[#2A2A2A] rounded-lg p-4 hover:border-[#14B8A6]/30 transition-all duration-300 hover:shadow-md hover:shadow-[#14B8A6]/5">
@@ -38,8 +46,12 @@ function PastRoom({ id, audioUrl, createdAt }: PastRoomProps) {
         </p>
       </div>
       <div className="flex items-center">
-        <Button variant="outline" onClick={handleDownload}>
-          Download
+        <Button
+          variant="outline"
+          onClick={handleDownload}
+          disabled={audioUrl === null}
+        >
+          {audioUrl === null ? "Generating..." : "Download"}
         </Button>
       </div>
     </div>

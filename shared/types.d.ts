@@ -20,7 +20,9 @@ export type CreateRoomResponse = {
 export type WebsocketPacket =
   | {
       type: "connect";
-      meetingId: string;
+      data: {
+        meetingId: string;
+      };
     }
   | {
       type: "connected";

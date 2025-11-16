@@ -7,7 +7,7 @@ import { useRoom } from "../context/RoomContext";
 import { useNavigate } from "react-router";
 
 export default function RoomListPage() {
-  const { rooms, createRoom, isCreating } = useRooms();
+  const { rooms, createRoom, isCreating, pastRooms } = useRooms();
   const { value } = useRoom();
   const navigate = useNavigate();
 
@@ -44,18 +44,10 @@ export default function RoomListPage() {
         <ActiveRooms activeRooms={activeRooms} />
         <div className="h-20" />
         <PastRooms
-          pastRooms={[
-            {
-              id: "asdfasdf",
-              audioUrl: null,
-              createdAt: new Date().toISOString(),
-            },
-            {
-              id: "dfjsodfv",
-              audioUrl: null,
-              createdAt: new Date().toISOString(),
-            },
-          ]}
+          pastRooms={(pastRooms ?? []).map((p) => ({
+            ...p,
+            id: p.meetingId,
+          }))}
         />
       </div>
     </div>
