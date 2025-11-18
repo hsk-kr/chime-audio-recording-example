@@ -24,8 +24,6 @@ Create `.env` file and set up environment variables
 > pnpm run backend:dev
 ```
 
-```
-
 ---
 
 # Build a Voice Chat App Using AWS Chime SDK (React + Node.js)
@@ -106,7 +104,7 @@ Your IAM user needs permission to access the Amazon Chime SDK.
 
 "Service": "mediapipelines.chime.amazonaws.com"
 
-````
+```
 
 This allows the Chime SDK to access your S3 bucket and create audio files.
 
@@ -125,7 +123,7 @@ const meeting = await meetingClient.send(
     MediaRegion: region,
   }),
 );
-````
+```
 
 Before creating anything, you should understand the two “panels”:
 
