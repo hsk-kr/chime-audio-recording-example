@@ -2,7 +2,7 @@
 
 1. Install Dependencies
 
-```
+```properties
 > pnpm install
 ```
 
@@ -14,11 +14,15 @@ Create `.env` file and set up environment variables
 
 3. Run Frontend Dev Server
 
+```properties
 > pnpm run frontend:dev
+```
 
 4. Run Backend Dev Server
 
+```properties
 > pnpm run backend:dev
+```
 
 ```
 
