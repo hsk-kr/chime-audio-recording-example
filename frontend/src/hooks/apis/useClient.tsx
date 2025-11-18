@@ -38,7 +38,7 @@ export default function useClient({ meetingId }: { meetingId: string }) {
     });
 
     socket.addEventListener("error", () => {
-      setError("Failed to connect to servr");
+      setError("Failed to connect to server");
       setConnected(false);
     });
 
